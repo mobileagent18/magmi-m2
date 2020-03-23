@@ -3,6 +3,7 @@
     "description": "Magento Mass Importer",
     "license": "MIT License",
     "homepage": "http://sourceforge.net/projects/magmi/",
+    "type": "magento-module",
     "authors":[
         {
             "name":"Sebastien Bracquemont"
