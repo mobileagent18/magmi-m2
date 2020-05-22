@@ -314,7 +314,14 @@ class Magmi_DefaultAttributeItemProcessor extends Magmi_ItemProcessor
                     if ($ivalue == "" && $exists) {
                         return "__MAGMI_DELETE__";
                     }
-                    $oids = $this->getOptionIds($attid, $storeid, array($ivalue));
+                    
+                    
+                    // modified by tony on 05/17/2020. pass in attribute code like bead_size, bead_color, so that we can trigger the swatch update.
+
+                    $oids = $this->getNewOptionIds($attid, $storeid, array($ivalue), $attrcode);
+   
+                    // done with modification.
+                    
                     //the new oids is a key/value array
                     //in case of translate, the oids key is only the admin value, but the values are ok
                     //this would also work for multiselect

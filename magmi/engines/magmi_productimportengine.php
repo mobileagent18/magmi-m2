@@ -444,6 +444,13 @@ class Magmi_ProductImportEngine extends Magmi_Engine
         return $attrinf;
     }
 
+    // added by Tony on 05/17/2020. keep the existing interface not changed, and hook up to new getOptionIds method
+    public function getOptionIds($attid, $storeid, $values)
+    {
+        getNewOptionIds($attid, $storeid, $values, "");
+    }
+    
+    
     /**
      * Returns option ids for a given store for a set of values (for select/multiselect attributes)
      * - Create new entries if values do not exist
@@ -456,7 +463,8 @@ class Magmi_ProductImportEngine extends Magmi_Engine
      *            value to create options for
      * @return array list of option ids
      */
-    public function getOptionIds($attid, $storeid, $values)
+    // Modified by Tony on 05/17/2020, add attributecode input so that we can trigger the swatch update.
+    public function getNewOptionIds($attid, $storeid, $values, $attributecode)
     {
         $svalues = array(); // store specific values
         $avalues = array(); // default (admin) values
@@ -495,23 +503,45 @@ class Magmi_ProductImportEngine extends Magmi_Engine
         $optAdmin = $this->getCachedOpts($attid, 0);
         //for all defined values
         for ($i = 0; $i < $cval; $i++) {
+            // modified by tony, check if attirbute has ":" seperator, if yes, means it's a visual swatch or picture swatch, like "Red:1:#8f8f8f"
+            $optionlabel = $avalues[$i];  // after new option created, if encounter the same option label, magmi no need to create it again
+            $pieces = explode(":", $avalues[$i]);
+            if ( sizeof($pieces) > 1 ) {
+                $optionlabel = $pieces[0];     // for "Red:1:#8f8f8f", use the Red as the caching label
+            }
             $pos = $pvalues[$i];
             //if not existing in cache,create it
-            if (!isset($optAdmin[$avalues[$i]])) {
+            if (!isset($optAdmin[$optionlabel])) {
                 //if no position set, default to 0
                 $xpos = $pos == -1 ? 0 : $pos;
                 //create new option entry
                 $newoptid = $this->createOption($attid, $xpos);
-                $this->createOptionValue($newoptid, 0, $avalues[$i]);
+                
+                // modified by Tony on 05/17/2020, check the attribute type, then decide if regular attribute option or swatch option to be created.
+                // current hardcoding to some attribute.
+                
+                if ( substr($attributecode, 0, 2) == "b_" ) {
+                    if ( sizeof($pieces) > 1 ) {           // multiple space found, like "Red:1:#8f8f8f"
+                        $this->createOptionSwatch($newoptid, 0, $pieces[2], $pieces[1]);  // 0 - text swatch, 1 - visual, 2 - picture.
+                        $this->createOptionValue($newoptid, 0, $pieces[0]);
+                    } else {
+                        // regular text swatch, like "8mm"
+                        $this->createOptionSwatch($newoptid, 0, $avalues[$i], 0);  // 0 - text swatch, 1 - visual, 2 - picture.
+                	$this->createOptionValue($newoptid, 0, $avalues[$i]);
+                    } 
+                }  else {
+                    $this->createOptionValue($newoptid, 0, $avalues[$i]);
+                }           
+                
                 //cache new created one
-                $this->cacheOpt($attid, 0, $newoptid, $avalues[$i], $xpos);
+                $this->cacheOpt($attid, 0, $newoptid, $optionlabel, $xpos);
             }
             //else check for position change
             else {
-                $curopt = $optAdmin[$avalues[$i]];
+                $curopt = $optAdmin[$optionlabel];
                 if ($pos != -1 && $pos != $curopt[1]) {
                     $this->updateOptPos($curopt[0], $pvalues[$i]);
-                    $this->cacheOpt($attid, 0, $curopt[0], $avalues[$i], $pos);
+                    $this->cacheOpt($attid, 0, $curopt[0], $optionlabel, $pos);
                 }
             }
         }
@@ -646,6 +676,19 @@ class Magmi_ProductImportEngine extends Magmi_Engine
         return $optval_id;
     }
 
+    /**
+     * Created by Tony, add support for swatch option value insert
+     */
+    public function createOptionSwatch($optid, $store_id, $optval, $type)
+    {
+        $t = $this->tablename('eav_attribute_option_swatch');
+        $optval_id = $this->selectone("SELECT swatch_id FROM $t WHERE option_id=? AND store_id=?", array($optid, $store_id), "swatch_id");
+        if (!$optval_id) {
+            $optval_id = $this->insert("INSERT INTO $t (option_id,store_id,value,type) VALUES (?,?,?,?)", array($optid, $store_id, $optval, $type));
+        }
+        
+        return $optval_id;
+    }
     /* create a new option entry for an attribute */
 
     /**

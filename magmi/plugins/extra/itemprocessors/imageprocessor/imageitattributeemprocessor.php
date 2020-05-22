@@ -307,6 +307,7 @@ class ImageAttributeItemProcessor extends Magmi_ItemProcessor
         $excluded = false,
         $refid = null
     ) {
+        if ( $excluded ) return;
         $gal_attinfo = $this->getAttrInfo("media_gallery");
         $tg = $this->tablename('catalog_product_entity_media_gallery');
         $tgv = $this->tablename('catalog_product_entity_media_gallery_value');
